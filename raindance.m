@@ -1,4 +1,4 @@
-function CRN_splits(mar,E,E_err,ksn,ksn_err,ksn_q,ksn_q_err)
+function raindance(mar,E,E_err,ksn,ksn_err,ksn_q,ksn_q_err)
 % written by byron adams (09/2018)
 %
 % this script was designed to explore the climate influences on
