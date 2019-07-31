@@ -1,4 +1,4 @@
-function [coeff,n,MSWD,MSWD_std] = MC_York(b,x,y,x_err,y_err,num,varargin)
+function [coeff,expo,MSWD,MSWD_std] = MC_York(b,x,y,x_err,y_err,num,varargin)
 %-------------------------------------------------------------------------%
 % Function written by Byron A. Adams - Updated: 11 Apr 2019
 %-------------------------------------------------------------------------%
@@ -39,7 +39,9 @@ function [coeff,n,MSWD,MSWD_std] = MC_York(b,x,y,x_err,y_err,num,varargin)
 % num - number of monte carlo simulations
 % x_max - maximum value of x to use in calculations
 % fig_num - this is the figure number to be used
-% colour - color of plotted outputs. [r g b] format where rgb are 0-1         
+% colour - color of plotted outputs. [r g b] format where rgb are 0-1
+% draw_fig - true/false flag to draw (true, default) or suppress drawing 
+% fix_b - true/false flag to fix the exponent in the power law when fitting        
 %
 % Outputs:
 % n - the best-fit power law exponent
@@ -65,6 +67,8 @@ function [coeff,n,MSWD,MSWD_std] = MC_York(b,x,y,x_err,y_err,num,varargin)
 	addParameter(p,'x_max',max(x),@(x) isscalar(x));
     addParameter(p,'fig_num',1,@(x) isscalar(x));
     addParameter(p,'colour',[0 0 0],@(x) isnumeric(x));
+    addParameter(p,'draw_fig',true,@(x) isscalar(x) && islogical(x));
+    addParameter(p,'fix_b',true,@(x) isscalar(x) && islogical(x));
     %
 	parse(p,b,x,y,x_err,y_err,num,varargin{:});
 	b = p.Results.b;
@@ -77,6 +81,8 @@ function [coeff,n,MSWD,MSWD_std] = MC_York(b,x,y,x_err,y_err,num,varargin)
 	x_max = p.Results.x_max;
     fig_num = p.Results.fig_num;
     colour = p.Results.colour;
+    draw_fig = p.Results.draw_fig;
+    fix_b = p.Results.fix_b;
 %
 % initialize matricies
     x_box = zeros(num,length(x));
@@ -103,7 +109,7 @@ function [coeff,n,MSWD,MSWD_std] = MC_York(b,x,y,x_err,y_err,num,varargin)
 % the best-fit exponent, which is the slope of the data once log-
 % transformed. if b is fixed (b has length = 1) then only calculate the
 % intercept
-	if length(b) > 1
+	if ~fix_b
         % initialize variables
             b_all = zeros(1,num);
             r = 0;
@@ -113,6 +119,7 @@ function [coeff,n,MSWD,MSWD_std] = MC_York(b,x,y,x_err,y_err,num,varargin)
         %
         % monte carlo loop. calculate regression parameters for each
         % simulation
+        w1=waitbar(0,'Running iterations...');
         for j = 1:num
             % intialize chi_sq with some large number
                 chi_sq = 1e6;
@@ -159,9 +166,11 @@ function [coeff,n,MSWD,MSWD_std] = MC_York(b,x,y,x_err,y_err,num,varargin)
                 else
                     b_all(j) = NaN;
                 end
+            waitbar(j/num);
         end
+        close(w1);
         % find mean b
-            b = nanmean(b_all);
+            b = mean(b_all,'omitnan');
         %
         % linearize the entire synthetic mote carlo dataset
         	trans_x = log(new_x);
@@ -211,7 +220,15 @@ function [coeff,n,MSWD,MSWD_std] = MC_York(b,x,y,x_err,y_err,num,varargin)
 	MSWD_std = sqrt(2/(length(x) - 2));
 %
 % plot best-fit curve and parameters
-	figure(fig_num)
-	hold on
-	line(x_plot,y_plot,'Color',colour,'LineWidth',2.5,'DisplayName','LSE')
+    if draw_fig
+    	figure(fig_num)
+    	hold on
+        e1=errorbar(x,y,y_err,y_err,x_err,x_err,'.');
+        e1.Color=[0.5 0.5 0.5];
+        e1.CapSize=1;
+        scatter(x,y,30,[0.5 0.5 0.5],'filled');
+    	line(x_plot,y_plot,'Color',colour,'LineWidth',2.5,'DisplayName','LSE')
+        hold off
+    end
 %
+end
