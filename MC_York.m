@@ -1,31 +1,35 @@
-function [coeff,expo,MSWD,MSWD_std] = MC_York(b,x,y,x_err,y_err,num,varargin)
+function [coeff,n,MSWD,MSWD_std] = MC_York(b,x,y,x_err,y_err,varargin)
 %-------------------------------------------------------------------------%
 % Function written by Byron A. Adams - Updated: 11 Apr 2019
 %-------------------------------------------------------------------------%
 %
 % Description:
-% this code uses the equations of York 1967 (CND J. Phys.) to impliment a 
+% Function uses the equations of York 1967 (CND J. Phys.) to impliment a 
 % least-squares linear regression. specifically this script implements the
 % equation for the slope (b) of a line where the weights of the x and y
-% data are equal. this precondition is selected such that distance
+% data are equal. This precondition is selected such that the distance
 % minimized between a data point and the regression line is orthogonal to
-% the regression line. therefore, the equation for the slope is found in
+% the regression line. Therefore, the equation for the slope is found in
 % case iii (a) on page 1083. this solution also assumes no correlation of 
 % uncertainties. see York 1967 (EPSL) for more discussion.
 %
-% power-law related data must be linearized before conducting a linear
+% Power-law related data must be linearized before conducting a linear
 % regression. to achieve this, data are log-transformed.
 %
-% because the regressed xy data do not likely have equal uncertainties,
+% Because the regressed xy data do not likely have equal uncertainties,
 % this least-squares regression routine is wrapped in a monte carlo
 % protocol where a random, but normally distributed value is selected
 % from each x and y value based on the mean and 1 sigma uncertainties for
-% each sample. these regression simulations are carried out N times and
+% each sample. These regression simulations are carried out N times and
 % mean slope values are calculated from which intercept values are 
 % calculated.
 %
+% The user can either input a single value for the exponent (b) or enter a
+% value of 0 for the function to find the best-fit exponent.
+% 
+%
 % Usage:
-% [coeff,n,MSWD,MSWD_std] = MC_York(b,x,y,x_err,y_err,varargin);
+% MC_York(b,x,y,x_err,y_err);
 % [coeff,n,MSWD,MSWD_std] = MC_York(b,x,y,x_err,y_err,'num',1e5,...);
 %
 % Required inputs:
@@ -39,9 +43,9 @@ function [coeff,expo,MSWD,MSWD_std] = MC_York(b,x,y,x_err,y_err,num,varargin)
 % num - number of monte carlo simulations
 % x_max - maximum value of x to use in calculations
 % fig_num - this is the figure number to be used
-% colour - color of plotted outputs. [r g b] format where rgb are 0-1
-% draw_fig - true/false flag to draw (true, default) or suppress drawing 
-% fix_b - true/false flag to fix the exponent in the power law when fitting        
+% colour - color of plotted outputs. [r g b] format where rgb are 0-1  
+% print - flag that sets whether resulting regression should be printed to
+%         screen 'y' for yes, 'n' for no. yes is the default
 %
 % Outputs:
 % n - the best-fit power law exponent
@@ -62,27 +66,25 @@ function [coeff,expo,MSWD,MSWD_std] = MC_York(b,x,y,x_err,y_err,num,varargin)
     addRequired(p,'y',@(x) isnumeric(x));
     addRequired(p,'x_err',@(x) isnumeric(x));
     addRequired(p,'y_err',@(x) isnumeric(x));
-	addRequired(p,'num',@(x) isnumeric(x));
     %
+    addParameter(p,'num',1e6,@(x) isnumeric(x));
 	addParameter(p,'x_max',max(x),@(x) isscalar(x));
     addParameter(p,'fig_num',1,@(x) isscalar(x));
     addParameter(p,'colour',[0 0 0],@(x) isnumeric(x));
-    addParameter(p,'draw_fig',true,@(x) isscalar(x) && islogical(x));
-    addParameter(p,'fix_b',true,@(x) isscalar(x) && islogical(x));
+    addParameter(p,'print','y',@(x) ischar(x));
     %
-	parse(p,b,x,y,x_err,y_err,num,varargin{:});
+	parse(p,b,x,y,x_err,y_err,varargin{:});
 	b = p.Results.b;
 	x = p.Results.x;
     y = p.Results.y;
     x_err = p.Results.x_err;
     y_err = p.Results.y_err;
-	num = p.Results.num;
     %
+    num = p.Results.num;
 	x_max = p.Results.x_max;
     fig_num = p.Results.fig_num;
     colour = p.Results.colour;
-    draw_fig = p.Results.draw_fig;
-    fix_b = p.Results.fix_b;
+    print = p.Results.print;
 %
 % initialize matricies
     x_box = zeros(num,length(x));
@@ -109,7 +111,7 @@ function [coeff,expo,MSWD,MSWD_std] = MC_York(b,x,y,x_err,y_err,num,varargin)
 % the best-fit exponent, which is the slope of the data once log-
 % transformed. if b is fixed (b has length = 1) then only calculate the
 % intercept
-	if ~fix_b
+	if b > 0
         % initialize variables
             b_all = zeros(1,num);
             r = 0;
@@ -119,7 +121,6 @@ function [coeff,expo,MSWD,MSWD_std] = MC_York(b,x,y,x_err,y_err,num,varargin)
         %
         % monte carlo loop. calculate regression parameters for each
         % simulation
-        w1=waitbar(0,'Running iterations...');
         for j = 1:num
             % intialize chi_sq with some large number
                 chi_sq = 1e6;
@@ -166,9 +167,7 @@ function [coeff,expo,MSWD,MSWD_std] = MC_York(b,x,y,x_err,y_err,num,varargin)
                 else
                     b_all(j) = NaN;
                 end
-            waitbar(j/num);
         end
-        close(w1);
         % find mean b
             b = mean(b_all,'omitnan');
         %
@@ -187,6 +186,8 @@ function [coeff,expo,MSWD,MSWD_std] = MC_York(b,x,y,x_err,y_err,num,varargin)
             a = Y_bar - X_bar*b;
     else
         % this else loop solves for a if b is fixed
+        % invert the exponent
+            b = 1/b;
         % linearize the data
         	trans_x = log(new_x);
         	trans_y = log(new_y);
@@ -210,25 +211,18 @@ function [coeff,expo,MSWD,MSWD_std] = MC_York(b,x,y,x_err,y_err,num,varargin)
 %        
 % write data for output
 	coeff = exp(a);
-	expo = b;
+    n = 1/b;
 %
 % calculate the MSWD of the best-fit parameters
-	n = 1/expo;
 	C = 1/coeff^n;
-	chi_sq = sum(((x - C.*(y.^n)).^2)./((x_err.^2) + (C.*n.*y.^(n - 1)).^2.*(y_err.^2)));
+	chi_sq = sum(((x - C.*(y.^b)).^2)./((x_err.^2) + (C.*b.*y.^(b - 1)).^2.*(y_err.^2)));
 	MSWD = chi_sq/(length(x) - 2);
 	MSWD_std = sqrt(2/(length(x) - 2));
 %
 % plot best-fit curve and parameters
-    if draw_fig
-    	figure(fig_num)
-    	hold on
-        e1=errorbar(x,y,y_err,y_err,x_err,x_err,'.');
-        e1.Color=[0.5 0.5 0.5];
-        e1.CapSize=1;
-        scatter(x,y,30,[0.5 0.5 0.5],'filled');
-    	line(x_plot,y_plot,'Color',colour,'LineWidth',2.5,'DisplayName','LSE')
-        hold off
+    if print == 'y'
+        figure(fig_num)
+        hold on
+        line(x_plot,y_plot,'Color',colour,'LineWidth',2.5,'DisplayName','LSE')
     end
 %
-end
