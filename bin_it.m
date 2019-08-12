@@ -9,21 +9,21 @@ function [table_1,table_2] = bin_it(mar,E,E_err,ksn,ksn_err,ksn_q,ksn_q_err,m,n,
 % given the mean annual precipitation bin value.
 %
 % Usage:
-% [table_1,table_2] = bin_it(mar,E,E_err,ksn,ksn_err,ksn_q,ksn_q_err,m,n,Klp,divisions);
+% bin_it(mar,E,E_err,ksn,ksn_err,ksn_q,ksn_q_err,m,n,Klp,divisions);
 % [table_1,table_2] = bin_it(mar,E,E_err,ksn,ksn_err,ksn_q,ksn_q_err,m,n,Klp,divisions,'name',value,...);
 %
 % Required Inputs:
-% mar - mean annual rainfall/precipitation (m/yr)
+% mar - mean annual rainfall (m/yr)
 % E - erosion rate (m/Myr)
 % E_err - 1 sigma uncertainites on the erosion rate data (m/Myr)
 % ksn - normalized channel steepness data
 % ksn_err - 1 sigma uncertainites on the channel steepness data
-% ksn-q - 
-% ksn-q_err - 
-% m - water discharge exponent for stream-power law (unitless)
-% n - slope exponent for stream-power law (unitless)
+% ksn-q - discharge-based channel steepness data 
+% ksn-q_err - 1 sigma uncertainites on the channel steepness data
+% m - water discharge exponent for stream-power law (unitless) (scalar)
+% n - slope exponent for stream-power law (unitless) (scalar)
 % Klp - partial coefficient of erosion (L^1-3m T^m-1). Note that L is
-%       in meters and T is in years
+%       in meters and T is in years. (scalar)
 % divisions - precipitation division points (bin edges)(m/yr)
 %
 % Optional Inputs:
@@ -116,7 +116,7 @@ function [table_1,table_2] = bin_it(mar,E,E_err,ksn,ksn_err,ksn_q,ksn_q_err,m,n,
 %
 % calculate the complete coefficient of erosion values of the stream-power 
 % model in units of m and Myr
-    Klpr = (1./(Klp.*1e6.*centers)).^(1/n_SP);
+    K = (1./(Klp.*1e6.*centers)).^(1/n_SP);
 %
 % plot a histogram to see the distribution of data into MAR bins
     figure(1)
@@ -126,7 +126,6 @@ function [table_1,table_2] = bin_it(mar,E,E_err,ksn,ksn_err,ksn_q,ksn_q_err,m,n,
     xlim([0 max(divisions)])
 %
 % loop through each MAR bin to divide samples and calculate regressions.
-% create a plot of each bin regression and stream-power model
     for j = 1:max(group)
         ind = find(group == j);
         name{j} = ['ksn_' num2str(centers(j))];
@@ -146,13 +145,13 @@ function [table_1,table_2] = bin_it(mar,E,E_err,ksn,ksn_err,ksn_q,ksn_q_err,m,n,
             histogram(mar_new,edges)
         %
         % calculate the best-fit power-law realtionship for the MAR bin
-        	[C_LSE(j),n_LSE(j),MSWD_LSE(j),MSWD_std_LSE(j)] = MC_York(1./n,E_new,ksn_new,E_err_new,ksn_err_new,num,'x_max',E_max,'fig_num',j+1,'colour',[0.5 0.5 0.5]);
+        	[C_LSE(j),n_LSE(j),MSWD_LSE(j),MSWD_std_LSE(j)] = MC_York(n,E_new,ksn_new,E_err_new,ksn_err_new,num,'x_max',E_max,'fig_num',j+1,'colour',[0.5 0.5 0.5]);
         %
         % calculate the stream-power model for the MAR bin
-         	stream_power(m,n_SP,Klp,mar_grp_new(1),E_max,j+1,[0 0 0]);
+         	SPM(m,n_SP,Klp,mar_grp_new(1),E_max,j+1,[0 0 0]);
         %
         % calculate the MSWD of the stream-power law
-        	chi_sq = sum(((E_new - (1/Klpr(j)^n_SP).*(ksn_new.^n_SP)).^2)./((E_err_new.^2) + ((1/Klpr(j)^n_SP).*n_SP.*ksn_new.^(n_SP - 1)).^2.*(ksn_err_new.^2)));
+        	chi_sq = sum(((E_new - (1/K(j)^n_SP).*(ksn_new.^n_SP)).^2)./((E_err_new.^2) + ((1/K(j)^n_SP).*n_SP.*ksn_new.^(n_SP - 1)).^2.*(ksn_err_new.^2)));
         	MSWD_SP(j) = chi_sq/(length(E_new) - 2);
         	MSWD_std_SP(j) = sqrt(2/(length(E_new) - 2));
         %
@@ -189,14 +188,14 @@ function [table_1,table_2] = bin_it(mar,E,E_err,ksn,ksn_err,ksn_q,ksn_q_err,m,n,
         mar_grp_new = mar_group(ind);
         %
         % plot regression curves
-            [~,~,~,~] = MC_York(1./n,E_new,ksn_new,E_err_new,ksn_err_new,num,'x_max',E_max,'fig_num',j+2,'colour',cgroup.Color);
+            [~,~,~,~] = MC_York(n,E_new,ksn_new,E_err_new,ksn_err_new,num,'x_max',E_max,'fig_num',j+2,'colour',cgroup.Color);
         %
         % plot stream-power curves
-            stream_power(m,n_SP,Klp,mar_grp_new(1),E_max,j+2,cgroup.Color);
+            SPM(m,n_SP,Klp,mar_grp_new(1),E_max,j+2,cgroup.Color);
 	end
 %
 % plot all ksn-q data, regressions of each bin, and a regression and
-% stream-poer curve for all data
+% stream-power curve for all data
 	figure(j+3)
 	hold on
     % use Klp to predict ksn-q for range of E. this is equivalent to using
@@ -219,7 +218,7 @@ function [table_1,table_2] = bin_it(mar,E,E_err,ksn,ksn_err,ksn_q,ksn_q_err,m,n,
 	%
     % calculate the best-fit relationship for all data
     	name{j+1} = 'ksn_q_all';
-        [C_LSE(j+1),n_LSE(j+1),MSWD_LSE(j+1),MSWD_std_LSE(j+1)] = MC_York(1./n,E,ksn_q,E_err,ksn_q_err,num,'x_max',E_max,'fig_num',j+3,'colour',[0.5 0.5 0.5]);
+        [C_LSE(j+1),n_LSE(j+1),MSWD_LSE(j+1),MSWD_std_LSE(j+1)] = MC_York(n,E,ksn_q,E_err,ksn_q_err,num,'x_max',E_max,'fig_num',j+3,'colour',[0.5 0.5 0.5]);
     % 
     % split ksn-q data according to bins
         for l = 1:max(group)
@@ -232,7 +231,7 @@ function [table_1,table_2] = bin_it(mar,E,E_err,ksn,ksn_err,ksn_q,ksn_q_err,m,n,
             %
             % plot regression curves
                 name_q{l} = ['ksn_q_' num2str(centers(l))];
-                [C_LSE_q(l),n_LSE_q(l),MSWD_LSE_q(l),MSWD_std_LSE_q(l)] = MC_York(1./n,E_new,ksn_q_new,E_err_new,ksn_q_err_new,num,'x_max',E_max,'fig_num',j+3,'colour',cgroup.Color);
+                [C_LSE_q(l),n_LSE_q(l),MSWD_LSE_q(l),MSWD_std_LSE_q(l)] = MC_York(n,E_new,ksn_q_new,E_err_new,ksn_q_err_new,num,'x_max',E_max,'fig_num',j+3,'colour',cgroup.Color);
         end
 %
 % plot original data and a regression and stream-power curve for all data
@@ -240,7 +239,7 @@ function [table_1,table_2] = bin_it(mar,E,E_err,ksn,ksn_err,ksn_q,ksn_q_err,m,n,
 	hold on
     % use Klp to predict ksn for range of E. this is equivalent to using
     % the stream-power law
-    	ksn_model = (E_model./(Klp*1e6*median(mar))).^(1/n_SP);
+    	ksn_model = (E_model./(Klp*1e6*median(mar).^m)).^(1/n_SP);
     %
     % calculate the MSWD of the stream-power model
     	chi_sq = sum(((E - (Klp*1e6*median(mar)).*(ksn.^n_SP)).^2)./((E_err.^2) + ((Klp*1e6*median(mar)).*n_SP.*ksn.^(n_SP - 1)).^2.*(ksn_err.^2)));
@@ -254,7 +253,7 @@ function [table_1,table_2] = bin_it(mar,E,E_err,ksn,ksn_err,ksn_q,ksn_q_err,m,n,
     %
     % calculate the best-fit relationship for all data
         name{j+2} = 'ksn_all';
-        [C_LSE(j+2),n_LSE(j+2),MSWD_LSE(j+2),MSWD_std_LSE(j+2)] = MC_York(1./n,E,ksn,E_err,ksn_err,num,'x_max',E_max,'fig_num',j+4,'colour',[0.5 0.5 0.5]);
+        [C_LSE(j+2),n_LSE(j+2),MSWD_LSE(j+2),MSWD_std_LSE(j+2)] = MC_York(n,E,ksn,E_err,ksn_err,num,'x_max',E_max,'fig_num',j+4,'colour',[0.5 0.5 0.5]);
     %
     % plot details
         xlabel('Erosion rate (m/Myr)')
