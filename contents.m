@@ -1,5 +1,5 @@
 % raindance
-% Version 1.0  9-August-2019
+% Version 1.0  20-July-2020
 %
 % These are a series of MATLAB functions that were designed to explore  
 % climate influences on topography and erosion rates. Specficially, the
@@ -29,20 +29,14 @@
 %
 %
 % Function List: 
-% find_Klp - finds a rainfall modulated erosional efficiency and n value
-%            that best fit the regressions of observed data, and the 
-%            stream-power model for the same rainfall rate.
-% K2K - compares the erosional efficiencies predicted from regressions 
-%       of channel steepness and erosion rate data and erosional 
-%       efficiencies predcited from the stream-power model for a given n 
-%       and Klp pair.
-% bin_it - finds the best-fit power law between E and ksn within climate 
-%          bins. the stream-power law is also used to predict the ksn-E 
-%          relationship given the mean annual precipitation bin value
+% besties - finds a the partial erosional efficencny (Klp), n and, m values
+%           that best fit the observed ksn and E data, and the stream-
+%           power model
+% bin_it - explores the sensitivity of fluvial relief and erosion rates to
+%          rainfall rates
 % MC_York - this script uses a monte carlo framework to find best-fit 
 %           curves from power law or threshold relationships
 % SPM - this script uses the stream power model to predict channel 
 %       steepness values for a given precipitation value
-% baa_map - a colormap grading from blue to green to yellow
+% by_map - a colormap grading from blue to green to yellow
 % mar_map - a colormap grading from blue to white to red
-%
